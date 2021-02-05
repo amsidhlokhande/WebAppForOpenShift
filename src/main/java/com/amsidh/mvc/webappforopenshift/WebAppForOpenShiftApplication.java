@@ -6,8 +6,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
@@ -19,8 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 @SpringBootApplication
 public class WebAppForOpenShiftApplication {
@@ -57,7 +55,7 @@ class UserRestController {
 @RestController
 @AllArgsConstructor
 class HealthCheckController {
-    private Environment environment;
+    private final Environment environment;
 
     @GetMapping("/health/check")
     public String healthCheck() {
@@ -115,33 +113,39 @@ class UserServiceImpl implements UserService {
 @AllArgsConstructor
 class InMemoryWebSecurityConfig extends WebSecurityConfigurerAdapter {
 
-    private Environment environment;
+    private final Environment environment;
 
     @Override
     protected void configure(HttpSecurity httpSecurity) throws Exception {
-        httpSecurity.httpBasic().and().authorizeRequests().antMatchers("/health/**").permitAll().and()
-                .formLogin().disable()
-                .csrf().disable();
+
+        httpSecurity
+                .authorizeRequests()
+                .antMatchers("/health/**").permitAll()
+                .anyRequest().authenticated()
+                .and()
+                .formLogin().disable().httpBasic();
+
+        httpSecurity.csrf().disable();
 
     }
 
     @Bean
     public UserDetailsService getUserDetailsService() {
-        UserDetails amsidhUser = org.springframework.security.core.userdetails.User.withUsername("amsidh")
+        val amsidhUser = org.springframework.security.core.userdetails.User.withUsername("amsidh")
                 .passwordEncoder(PasswordEncoderFactories.createDelegatingPasswordEncoder()::encode)
                 .password("amsidh").roles(new String[]{}).build();
 
-        UserDetails testUser = org.springframework.security.core.userdetails.User.withUsername("test")
+        val testUser = org.springframework.security.core.userdetails.User.withUsername("test")
                 .passwordEncoder(PasswordEncoderFactories.createDelegatingPasswordEncoder()::encode)
                 .password("test").roles(new String[]{}).build();
 
-        UserDetails adithiUser = org.springframework.security.core.userdetails.User.withUsername("adithi")
+        val adithiUser = org.springframework.security.core.userdetails.User.withUsername("adithi")
                 .passwordEncoder(PasswordEncoderFactories.createDelegatingPasswordEncoder()::encode)
                 .password("adithi").roles(new String[]{}).build();
 
-        UserDetails customUser = org.springframework.security.core.userdetails.User.withUsername(environment.getProperty("spring.security.username"))
+        val customUser = org.springframework.security.core.userdetails.User.withUsername(Objects.requireNonNull(environment.getProperty("spring.security.username")))
                 .passwordEncoder(PasswordEncoderFactories.createDelegatingPasswordEncoder()::encode)
-                .password(environment.getProperty("spring.security.password")).roles(new String[]{}).build();
+                .password(Objects.requireNonNull(environment.getProperty("spring.security.password"))).roles(new String[]{}).build();
 
         return new InMemoryUserDetailsManager(amsidhUser, testUser, adithiUser, customUser);
     }
